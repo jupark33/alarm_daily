@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_time_picker_spinner/flutter_time_picker_spinner.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
 
 void main() {
   runApp(const MyApp());
@@ -95,7 +98,9 @@ class _MyHomePageState extends State<MyHomePage> {
             )
           ),
           ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                _dailyAtTimeNotification(_dateTime);
+              },
               child: Text('알람 설정'),
           )
         ],
@@ -115,4 +120,59 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     );
   }
+}
+
+// 출처 https://velog.io/@adbr/flutter-local-notification-Quick-Start2
+Future _dailyAtTimeNotification(DateTime dateTime) async {
+  final notiTitle = '알림';
+  final notiDesc = '매일 알림 입니다.';
+  final alarmId = 0;
+  final chId = 'id';
+  final chName = 'daily';
+
+  final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  final result = await flutterLocalNotificationsPlugin
+    .resolvePlatformSpecificImplementation<
+      IOSFlutterLocalNotificationsPlugin>()
+  ?.requestPermissions(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  var android = AndroidNotificationDetails(chId, chName, importance: Importance.max, priority: Priority.max);
+  var ios = IOSNotificationDetails();
+  var detail = NotificationDetails(android: android, iOS: ios);
+
+  print('_dailyAtTimeNotification, result : ${result}');
+
+  if (result == true) {
+    await flutterLocalNotificationsPlugin.
+      resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.deleteNotificationChannelGroup(chId);
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+        alarmId,
+        notiTitle,
+        notiDesc,
+        _setNotiTime(dateTime),
+        detail,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+        androidAllowWhileIdle: true
+    );
+  }
+
+}
+
+tz.TZDateTime _setNotiTime(DateTime dateTime) {
+  tz.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
+
+  final now = tz.TZDateTime.now(tz.local);
+  var scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day,
+      dateTime.hour, dateTime.minute
+  );
+
+  return scheduledDate;
 }
